@@ -1,36 +1,27 @@
 import requests
 
-# Replace with your details
-ACCESS_TOKEN = "EAAVau3ZAHEmoBOZCpmK11JBxisFRBxKy41YWyIRpbX4uFraDTihQBRJ6mmHmLzZARcCW4hsWb42naMyjHzQmrDTFaSDt3l4gb5mglzgqeOeN4BgA0gNn58PAIZAZAllvBrMjRIKJwQDntUXMpmksspG13xZCwFKoNbycFkQZAzJSZCn1m2jyWUfeyksYtCQZCqxovIbtHDPHZBqKvyplj2zCtNqs9UFsU6ZBOUT0GkZD"
-PHONE_NUMBER_ID = "526125860582825"  # From Meta Developer Console
-RECIPIENT_PHONE_NUMBER = "+9779805134917"  # Use format: "+1234567890"
-MESSAGE_TEXT = "Hello, this is a message from Sonang"
+# Replace these with your details
+ACCESS_TOKEN = 'EAAS7RHRiHFkBOZCrtda0EQv7IHNHYmiuWZCZCnCtR82QYUZB4TxbNBpaj7ZAZAZCrgnzVBAfFwKpZCW2tUFUg2pO3ZBmbvtyZA5VAwbPP8sQVbHZCq4Un3aS5Y8SD4eesna6ra1CNjEavZCVPOEOXQQYFfnqCm4lU91O93NJbFNUqRqGuG4L5CmUL442qaroU5dpTmEY5W6Nnotmpksg3ZBBOL3ScSW0T'
 
-# URL for the Cloud API
-url = f"https://graph.facebook.com/v16.0/{PHONE_NUMBER_ID}/messages"
+RECIPIENT_PSID = '1260363568412248'  # Obtain this via API
 
-# API headers
-headers = {
-    "Authorization": f"Bearer {ACCESS_TOKEN}",
-    "Content-Type": "application/json"
-}
-
-# Message payload
-payload = {
-    "messaging_product": "whatsapp",
-    "to": RECIPIENT_PHONE_NUMBER,
-    "type": "text",
-    "text": {
-        "body": MESSAGE_TEXT
+def send_instagram_message(access_token, recipient_psid, message):
+    url = f"https://graph.facebook.com/v21.0/me/messages"
+    headers = {
+        "Content-Type": "application/json"
     }
-}
+    payload = {
+        "recipient": {"id": recipient_psid},
+        "message": {"text": message},
+        "messaging_type": "RESPONSE"
+    }
+    params = {"access_token": access_token}
+    
+    response = requests.post(url, headers=headers, json=payload, params=params)
+    if response.status_code == 200:
+        print("Message sent successfully!")
+    else:
+        print("Failed to send message:", response.json())
 
-# Send the message
-response = requests.post(url, headers=headers, json=payload)
-
-# Check response
-if response.status_code == 200:
-    print("Message sent successfully!")
-else:
-    print(f"Failed to send message: {response.status_code}")
-    print(response.json())
+# Example usage
+send_instagram_message(ACCESS_TOKEN, RECIPIENT_PSID, "Hello! This is a test message ttt.")

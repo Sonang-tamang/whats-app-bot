@@ -1,97 +1,91 @@
-from flask import Flask, request, jsonify
 import requests
-import json  # For formatting JSON in debug logs
+import json
 
-app = Flask(__name__)
-
-# Replace with your actual credentials
-VERIFY_TOKEN = "12345"
-ACCESS_TOKEN = 'EAAVau3ZAHEmoBO3lSQt6L1wYhhEEQzcpK8BvZC3UcXjx6T4KHGljBxcttDsOWpds1hKY2ZBX6np3D6dEFZBZADjk0B7glM6uJZBLthg14OdpIM2MZAHsSwhmuL6Ad4kZBnllzKUkcEVHfwrv3jUsZATbF3b19cZC5XhsUlnPgIG8h8PAwKo1hAh2p3wFlAmk0AjO95DyBl0tVh2ao9ASh8ZAZBWMmPrFbPolcq1rOu6dOwZDZD'
-PHONE_NUMBER_ID = '+9779805134917'
-
-@app.route('/webhook', methods=['GET', 'POST'])
-def webhook():
-    if request.method == 'GET':
-        # Debug log for verification requests
-        print("[DEBUG] Received GET request for webhook verification.")
-        
-        hub_mode = request.args.get('hub.mode')
-        hub_challenge = request.args.get('hub.challenge')
-        hub_verify_token = request.args.get('hub.verify_token')
-
-        print(f"[DEBUG] hub.mode: {hub_mode}, hub.challenge: {hub_challenge}, hub.verify_token: {hub_verify_token}")
-
-        if hub_mode == 'subscribe' and hub_verify_token == VERIFY_TOKEN:
-            print("[DEBUG] Verification successful.")
-            return hub_challenge, 200
-        else:
-            print("[DEBUG] Verification failed. Invalid verify token.")
-            return 'Verification failed', 403
-
-    elif request.method == 'POST':
-        print("[DEBUG] Received POST request with potential webhook data.")
-        try:
-            data = request.get_json()
-            print(f"[DEBUG] Incoming webhook data: {json.dumps(data, indent=4)}")  # Pretty-print JSON
-
-            # Extracting message payload
-            entry = data.get("entry", [])
-            if not entry:
-                print("[DEBUG] No 'entry' in webhook payload.")
-                return jsonify({"status": "No entry found in payload"}), 200
-
-            changes = entry[0].get("changes", [])
-            if not changes:
-                print("[DEBUG] No 'changes' in entry.")
-                return jsonify({"status": "No changes found in payload"}), 200
-
-            messages = changes[0].get("value", {}).get("messages", [])
-            if not messages:
-                print("[DEBUG] No 'messages' found in changes.")
-                return jsonify({"status": "No messages found in payload"}), 200
-
-            # Process the first message
-            message = messages[0]
-            sender = message.get('from')  # Sender's phone number
-            text = message.get('text', {}).get('body', '')  # Message text
-
-            print(f"[DEBUG] Message from {sender}: {text}")
-
-            # Send a response back to the sender
-            send_message(sender, "Hello! How can I assist you today?")
-            print("[DEBUG] Response sent to the sender.")
-
-            return jsonify({"status": "Message received"}), 200
-
-        except Exception as e:
-            print(f"[ERROR] Exception occurred while handling POST request: {e}")
-            return jsonify({"status": "Error occurred"}), 500
-
-# Function to send a message via WhatsApp API
-def send_message(recipient_id, message_text):
-    print(f"[DEBUG] Preparing to send message to {recipient_id}: {message_text}")
-    url = f'https://graph.facebook.com/v16.0/{PHONE_NUMBER_ID}/messages'
-    headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
-        "Content-Type": "application/json"
+def get_instagram_account_id(access_token, facebook_page_id):
+    """Get Instagram Business Account ID connected to your Facebook Page"""
+    url = f"https://graph.facebook.com/v19.0/{facebook_page_id}?"
+    params = {
+        'access_token': access_token,
+        'fields': 'instagram_business_account'
     }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": recipient_id,
-        "text": {"body": message_text}
-    }
-
+    
     try:
-        response = requests.post(url, json=payload, headers=headers)
-        print(f"[DEBUG] WhatsApp API response: {response.status_code} {response.text}")
-
-        if response.status_code == 200:
-            print(f"[DEBUG] Message successfully sent to {recipient_id}.")
-        else:
-            print(f"[ERROR] Failed to send message. Status: {response.status_code}, Response: {response.text}")
+        response = requests.get(url, params=params)
+        print(f"Instagram Account Response: {response.json()}")
+        data = response.json()
+        return data.get('instagram_business_account', {}).get('id')
     except Exception as e:
-        print(f"[ERROR] Exception occurred while sending message: {e}")
+        print(f"Error getting Instagram account ID: {e}")
+        return None
 
-if __name__ == '__main__':
-    print("[DEBUG] Starting Flask server...")
-    app.run(port=5000, debug=True)
+def verify_permissions(access_token):
+    """Verify token permissions"""
+    url = "https://graph.facebook.com/v19.0/me/permissions"
+    params = {'access_token': access_token}
+    
+    try:
+        response = requests.get(url, params=params)
+        print(f"Permissions Response: {response.json()}")
+        return response.json()
+    except Exception as e:
+        print(f"Error checking permissions: {e}")
+        return None
+
+def send_instagram_message(access_token, ig_user_id, recipient_id, message_text):
+    """Send a message to an Instagram user using the Graph API"""
+    url = f"https://graph.facebook.com/v19.0/{ig_user_id}/messages"
+    
+    payload = {
+        'recipient': {
+            'id': recipient_id
+        },
+        'message': {
+            'text': message_text
+        },
+        'access_token': access_token
+    }
+    
+    print(f"\nSending message with payload:")
+    print(json.dumps(payload, indent=2))
+    
+    try:
+        response = requests.post(url, json=payload)
+        print(f"\nFull Response:")
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Body: {response.text}")
+        
+        return response.json() if response.ok else None
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending message: {str(e)}")
+        if hasattr(e.response, 'text'):
+            print(f"Error details: {e.response.text}")
+        return None
+
+if __name__ == "__main__":
+    # Your credentials
+    ACCESS_TOKEN = "your_access_token"
+    PAGE_ID = "516688734865370"  # Your Facebook Page ID
+    RECIPIENT_USERNAME = "17841471908744933"  # The Instagram username of recipient
+    MESSAGE = "Hello! This is a test message."
+    
+    # Step 1: Verify permissions
+    print("\nVerifying permissions...")
+    permissions = verify_permissions(ACCESS_TOKEN)
+    
+    # Step 2: Get Instagram Business Account ID
+    print("\nGetting Instagram Business Account ID...")
+    ig_account_id = get_instagram_account_id(ACCESS_TOKEN, PAGE_ID)
+    print(f"Instagram Business Account ID: {ig_account_id}")
+    
+    if ig_account_id:
+        # Step 3: Send message
+        result = send_instagram_message(ACCESS_TOKEN, ig_account_id, RECIPIENT_USERNAME, MESSAGE)
+        
+        if result:
+            print("\nMessage sent successfully!")
+            print(f"Response: {result}")
+        else:
+            print("\nFailed to send message. Check the error details above.")
+    else:
+        print("\nFailed to get Instagram Business Account ID. Cannot proceed.")
